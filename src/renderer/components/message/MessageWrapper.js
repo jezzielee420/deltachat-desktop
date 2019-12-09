@@ -33,7 +33,7 @@ const InfoMessage = styled.div`
   }
 `
 
-export const render = React.memo((props) => {
+export function render (props) {
   const {message, messageId, chat, locationStreamingEnabled} = props
   const {openDialog} = useContext(ScreenContext)
   const tx = window.translate
@@ -82,7 +82,7 @@ export const render = React.memo((props) => {
   }
 
   return <li>{body}</li>
-})
+}
 
 /**
  * RenderMessage takes a message already created with Message.convert
