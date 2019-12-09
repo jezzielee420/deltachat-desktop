@@ -120,6 +120,7 @@ chatStore.effects.push(async ({ type, payload }, state) => {
     const oldestFetchedMessageIndex = Math.max(state.oldestFetchedMessageIndex - 30, 0)
     const lastMessageIndexOnLastPage = state.oldestFetchedMessageIndex
     if (lastMessageIndexOnLastPage === 0) return
+    console.log(oldestFetchedMessageIndex, lastMessageIndexOnLastPage)
     const fetchedMessageIds = state.messageIds.slice(
       oldestFetchedMessageIndex,
       lastMessageIndexOnLastPage
@@ -127,6 +128,7 @@ chatStore.effects.push(async ({ type, payload }, state) => {
     if (fetchedMessageIds.length === 0) return
 
     const fetchedMessages = await callDcMethodAsync('messageList.getMessages', [fetchedMessageIds])
+    console.log('fetchedMessages', fetchedMessages)
 
     chatStore.dispatch({
       type: 'FETCHED_MORE_MESSAGES',

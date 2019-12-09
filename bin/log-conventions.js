@@ -2,7 +2,7 @@ require('colors')
 
 function formattedOutput (location, lines) {
   console.log(
-    `${'Console log function'.red} in ${location.yellow}
+    `${'Console log function'.red} in ${location.white}
 
 ${lines}
 
