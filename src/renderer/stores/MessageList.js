@@ -1,28 +1,11 @@
-import { ipcBackend, callDcMethod, callDcMethodAsync } from '../ipc'
+import { callDcMethodAsync, ipcBackend } from '../ipc'
 import { Store, useStore } from './store'
+import logger from '../../logger'
 
 export const PAGE_SIZE = 30
 
 const defaultState = {
-  id: null,
-  name: '',
-  isVerified: false,
-  profileImage: null,
-
-  archived: false,
-  subtitle: '',
-  type: null,
-  isUnpromoted: false,
-  isSelfTalk: false,
-
-  contacts: [],
-  color: '',
-  summary: undefined,
-  freshMessageCounter: 0,
-  isGroup: false,
-  isDeaddrop: false,
-  draft: null,
-
+  chatId: -1,
   messageIds: [],
   messages: {},
   oldestFetchedMessageIndex: -1,
@@ -33,23 +16,15 @@ const defaultState = {
   countFetchedMessages: 0
 }
 
-const chatStore = new Store(defaultState, 'ChatStore')
-const log = chatStore.log
+const MessageListStore = new Store(defaultState, 'MessageListStore')
+const log = MessageListStore.log
 
-
-chatStore.reducers.push(({type, payload, id}, state) => {
-  if (typeof id !== 'undefined' && id !== state.id) {
-    log.debug('REDUCER', 'id changed, skipping action')
+MessageListStore.reducers.push(({ type, payload, chatId }, state) => {
+  if (typeof chatId !== 'undefined' && chatId !== state.chatId) {
+    log.debug('REDUCER', 'chatId changed, skipping action')
   }
-
-  if (type === 'SELECT_CHAT') {
-    return { ...defaultState, id: payload }
-  } else if (type === 'SELECTED_CHAT') {
-    return { ...defaultState, ...payload }
-  } else if (type === 'UI_UNSELECT_CHAT') {
-    return { ...defaultState }
-  } else if (type === 'MODIFIED_CHAT') {
-    return { ...state, payload }
+  if (type === 'NEW_CHAT_SELECTED') {
+    return { ...state, ...payload }
   } else if (type === 'FETCHED_MORE_MESSAGES') {
     return {
       ...state,
@@ -88,8 +63,8 @@ chatStore.reducers.push(({type, payload, id}, state) => {
     ]
     const messages = { ...state.messages, [msgId]: null }
     return { ...state, messageIds, messages, oldestFetchedMessageIndex }
-    return { ...state, messages: { ...state.messages, ...payload.messagesChanged }} 
   } else if (type === 'MESSAGE_CHANGED') {
+    return { ...state, messages: { ...state.messages, ...payload.messagesChanged }} 
   } else if (type === 'SENT_MESSAGE') {
     const [messageId, message] = payload
     const messageIds = [...state.messageIds, messageId]
@@ -108,15 +83,29 @@ chatStore.reducers.push(({type, payload, id}, state) => {
     }
     return { ...state, messages }
   }
+
   return state
 })
 
-chatStore.effects.push(async ({type, payload}, state) => {
+MessageListStore.effects.push(async ({ type, payload }, state) => {
   if (type === 'SELECT_CHAT') {
-    callDcMethod('chatList.selectChat', [payload])
-  } else if (type === 'UI_DELETE_MESSAGE') {
-    const { msgId } = payload
-    callDcMethod('messageList.deleteMessage', [msgId])
+    const chatId = payload
+    log.debug('SELECT CHAT:', chatId)
+    const messageIds = await callDcMethodAsync('messageList.getMessageIds', [chatId])
+    const oldestFetchedMessageIndex = messageIds.length - PAGE_SIZE
+    const newestFetchedMessageIndex = messageIds.length
+    const messageIdsToFetch = messageIds.slice(oldestFetchedMessageIndex, newestFetchedMessageIndex)
+    const messages = await callDcMethodAsync('messageList.getMessages', [messageIdsToFetch])
+    MessageListStore.dispatch({
+      type: 'NEW_CHAT_SELECTED',
+      payload: {
+        chatId,
+        messageIds,
+        messages,
+        oldestFetchedMessageIndex,
+        scrollToBottom: true
+      }
+    })
   } else if (type === 'FETCH_MORE_MESSAGES') {
     const oldestFetchedMessageIndex = Math.max(state.oldestFetchedMessageIndex - 30, 0)
     const lastMessageIndexOnLastPage = state.oldestFetchedMessageIndex
@@ -131,7 +120,7 @@ chatStore.effects.push(async ({type, payload}, state) => {
     const fetchedMessages = await callDcMethodAsync('messageList.getMessages', [fetchedMessageIds])
     console.log('fetchedMessages', fetchedMessages)
 
-    chatStore.dispatch({
+    MessageListStore.dispatch({
       type: 'FETCHED_MORE_MESSAGES',
       payload: {
         fetchedMessages,
@@ -141,62 +130,26 @@ chatStore.effects.push(async ({type, payload}, state) => {
       }
     })
   } else if (type === 'SEND_MESSAGE') {
-    if (payload[0] !== chatStore.state.id) return
+    if (payload[0] !== MessageListStore.state.chatId) return
     const messageObj = await callDcMethodAsync('messageList.sendMessage', payload)
-    chatStore.dispatch({ type: 'SENT_MESSAGE', payload: messageObj, id: payload[0] })
+    MessageListStore.dispatch({ type: 'SENT_MESSAGE', payload: messageObj, chatId: payload[0] })
   }
 })
 
-ipcBackend.on('DD_EVENT_CHAT_MODIFIED', (evt, payload) => {
-  const { chatId, chat } = payload
-  const state = chatStore.getState()
-  if (state.id !== chatId) {
-    return
-  }
-  chatStore.dispatch({type: 'MODIFIED_CHAT', payload: {
-    profileImage: chat.profileImage,
-    name: chat.name,
-    subtitle: chat.subtitle,
-    contacts: chat.contacts,
-    selfInGroup: chat.selfInGroup
-  }})
-
-})
-
-ipcBackend.on('DD_EVENT_CHAT_SELECTED', async (evt, payload) => {
-  const { chat } = payload
-  const { id } = chat
-  const messageIds = await callDcMethodAsync('messageList.getMessageIds', [id])
-  const oldestFetchedMessageIndex = messageIds.length - PAGE_SIZE
-  const newestFetchedMessageIndex = messageIds.length
-  const messageIdsToFetch = messageIds.slice(oldestFetchedMessageIndex, newestFetchedMessageIndex)
-  const messages = await callDcMethodAsync('messageList.getMessages', [messageIdsToFetch])
-  chatStore.dispatch({
-    type: 'SELECTED_CHAT',
-    payload: {
-      ...chat,
-      messageIds,
-      messages,
-      oldestFetchedMessageIndex,
-      scrollToBottom: true,
-    }
-  })
-})
-
-ipcBackend.on('DC_EVENT_MSG_DELIVERED', (evt, [id, msgId]) => {
-  chatStore.dispatch({
+ipcBackend.on('DC_EVENT_MSG_DELIVERED', (evt, [chatId, msgId]) => {
+  MessageListStore.dispatch({
     type: 'MESSAGE_DELIVERED',
-    id,
+    chatId,
     payload: msgId
   })
 })
 
-ipcBackend.on('DC_EVENT_INCOMING_MSG', async (_, id, messageIdIncoming) => {
-  if (id !== chatStore.state.id) return
-  const messageIds = await callDcMethodAsync('messageList.getMessageIds', [id])
-  const messageIdsIncoming = messageIds.filter(x => !chatStore.state.messageIds.includes(x))
+ipcBackend.on('DC_EVENT_INCOMING_MSG', async (_, chatId, messageIdIncoming) => {
+  if (chatId !== MessageListStore.state.chatId) return
+  const messageIds = await callDcMethodAsync('messageList.getMessageIds', [chatId])
+  const messageIdsIncoming = messageIds.filter(x => !MessageListStore.state.messageIds.includes(x))
   const messagesIncoming = await callDcMethodAsync('messageList.getMessages', [messageIdsIncoming])
-  chatStore.dispatch({
+  MessageListStore.dispatch({
     type: 'FETCHED_INCOMING_MESSAGES',
     payload: {
       messageIds,
@@ -206,13 +159,13 @@ ipcBackend.on('DC_EVENT_INCOMING_MSG', async (_, id, messageIdIncoming) => {
   })
 })
 
-ipcBackend.on('DC_EVENT_MSGS_CHANGED', async (_, [id, messageId]) => {
-  log.debug('DC_EVENT_MSGS_CHANGED', id, messageId)
-  if (id !== chatStore.state.id) return
-  if (chatStore.state.messageIds.indexOf(messageId) !== -1) {
+ipcBackend.on('DC_EVENT_MSGS_CHANGED', async (_, [chatId, messageId]) => {
+  log.debug('DC_EVENT_MSGS_CHANGED', chatId, messageId)
+  if (chatId !== MessageListStore.state.chatId) return
+  if (MessageListStore.state.messageIds.indexOf(messageId) !== -1) {
     log.debug('DC_EVENT_MSGS_CHANGED', 'changed message seems to be message we already know')
     const messagesChanged = await callDcMethodAsync('messageList.getMessages', [[messageId]])
-    chatStore.dispatch({
+    MessageListStore.dispatch({
       type: 'MESSAGE_CHANGED',
       payload: {
         messageId,
@@ -221,10 +174,10 @@ ipcBackend.on('DC_EVENT_MSGS_CHANGED', async (_, [id, messageId]) => {
     }) 
   } else {
     log.debug('DC_EVENT_MSGS_CHANGED', 'changed message seems to be a new message')
-    const messageIds = await callDcMethodAsync('messageList.getMessageIds', [id])
-    const messageIdsIncoming = messageIds.filter(x => !chatStore.state.messageIds.includes(x))
+    const messageIds = await callDcMethodAsync('messageList.getMessageIds', [chatId])
+    const messageIdsIncoming = messageIds.filter(x => !MessageListStore.state.messageIds.includes(x))
     const messagesIncoming = await callDcMethodAsync('messageList.getMessages', [messageIdsIncoming])
-    chatStore.dispatch({
+    MessageListStore.dispatch({
       type: 'FETCHED_INCOMING_MESSAGES',
       payload: {
         messageIds,
@@ -235,5 +188,5 @@ ipcBackend.on('DC_EVENT_MSGS_CHANGED', async (_, [id, messageId]) => {
   }
 })
 
-export const useChatStore = () => useStore(chatStore)
-export default chatStore
+export default MessageListStore
+export const useMessageListStore = () => useStore(MessageListStore)

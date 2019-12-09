@@ -1,4 +1,5 @@
-import React, { useState, useContext } from 'react'
+import React, { useState, useRef, useEffect, useContext } from 'react'
+import { callDcMethod } from '../ipc'
 import styled from 'styled-components'
 import ScreenContext from '../contexts/ScreenContext'
 
@@ -10,6 +11,8 @@ import SearchInput from './SearchInput'
 import SettingsContext from '../contexts/SettingsContext'
 import { useChatStore } from '../stores/chat'
 import NavbarWrapper from './NavbarWrapper'
+
+import chatStore from '../stores/chat'
 
 import {
   Alignment,
@@ -50,7 +53,7 @@ export default function MainScreen () {
   const onChatClick = chatId => {
     // avoid double clicks
     if (chatId === selectedChat.id) return
-
+    
     chatStoreDispatch({ type: 'SELECT_CHAT', payload: chatId })
   }
   const searchChats = queryStr => setQueryStr(queryStr)

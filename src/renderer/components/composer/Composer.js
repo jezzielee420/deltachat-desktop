@@ -6,6 +6,7 @@ import SettingsContext from '../../contexts/SettingsContext'
 import ComposerMessageInput from './ComposerMessageInput'
 import logger from '../../../logger'
 import EmojiAndStickerPicker from './EmojiAndStickerPicker'
+import { callDcMethod } from '../../ipc'
 import { useChatStore } from '../../stores/chat'
 
 const log = logger.getLogger('renderer/composer')
@@ -19,7 +20,7 @@ const insideBoundingRect = (mouseX, mouseY, boundingRect, margin = 0) => {
 
 const Composer = React.forwardRef((props, ref) => {
   const { isDisabled, disabledReason, chatId, draft } = props
-  const chatStoreDispatch = useChatStore()[1]
+  const [chatStore, chatStoreDispatch] = useChatStore()
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
 
   const messageInputRef = useRef()
