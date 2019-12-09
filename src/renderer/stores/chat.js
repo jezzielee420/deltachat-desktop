@@ -1,5 +1,6 @@
-import { ipcBackend, callDcMethod } from '../ipc'
-import { Store } from './store'
+const { ipcRenderer } = require('electron')
+const { callDcMethod } = require('../ipc')
+const { Store } = require('./store')
 
 const defaultState = {
   id: null,
@@ -21,10 +22,9 @@ const defaultState = {
   isDeaddrop: false,
   draft: null
 }
-
 const chatStore = new Store(defaultState)
-const log = chatStore.log
 
+const log = require('../../logger').getLogger('renderer/stores/chat')
 
 // remove the message from state immediately
 
@@ -35,7 +35,7 @@ chatStore.effects.push((action) => {
   }
 })
 
-ipcBackend.on('DD_EVENT_CHAT_MODIFIED', (evt, payload) => {
+ipcRenderer.on('DD_EVENT_CHAT_MODIFIED', (evt, payload) => {
   const { chatId, chat } = payload
   const state = chatStore.getState()
   if (state.id !== chatId) {
@@ -52,8 +52,8 @@ ipcBackend.on('DD_EVENT_CHAT_MODIFIED', (evt, payload) => {
     })
 })
 
-ipcBackend.on('DD_EVENT_CHAT_SELECTED', (evt, payload) => {
+ipcRenderer.on('DD_EVENT_CHAT_SELECTED', (evt, payload) => {
   chatStore.setState(payload.chat)
 })
 
-export default chatStore
+module.exports = chatStore
