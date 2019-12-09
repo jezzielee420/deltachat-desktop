@@ -1,25 +1,19 @@
 import { callDcMethodAsync, ipcBackend } from '../ipc'
-import { Store } from './store'
+import EventEmitterStore from './EventEmitterStore'
 import logger from '../../logger'
-import MessageWrapper from '../components/message/MessageWrapper'
-
 const log = logger.getLogger('renderer/stores/MessageList')
 
-export const PAGE_SIZE = 50
+export const PAGE_SIZE = 30
 
 const defaultState = {
   chatId: -1,
   messageIds: [],
   messages: {},
-  oldestFetchedMessageIndex: -1,
-  scrollToBottom: false,
-  scrollToLastPage: false,
-  scrollHeight: 0,
-  countFetchedMessages: 0
+  oldestFetchedMessageIndex: -1
 }
 
 
-const MessageListStore = new Store(defaultState, 'MessageListStore')
+const MessageListStore = new EventEmitterStore(defaultState, 'MessageListStore')
 
 MessageListStore.getName = () => 'MessageListStore'
 
@@ -33,10 +27,7 @@ MessageListStore.reducers.push(({ type, payload}, state) => {
     return { 
       ...state,
       messages: {...state.messages, ...payload.fetchedMessages},
-      oldestFetchedMessageIndex: payload.oldestFetchedMessageIndex,
-      scrollToLastPage: true,
-      scrollHeight: payload.scrollHeight,
-      countFetchedMessages: payload.countFetchedMessages
+      oldestFetchedMessageIndex: payload.oldestFetchedMessageIndex
     }
   } else if (type === 'FETCHED_INCOMING_MESSAGES') {
     return { 
@@ -44,10 +35,6 @@ MessageListStore.reducers.push(({ type, payload}, state) => {
       messageIds: payload.messageIds,
       messages: {...state.messages, ...payload.messagesIncoming},
     }
-  } else if (type === 'SCROLLED_TO_LAST_PAGE') {
-    return {...state, scrollToLastPage: false, scrollHeight: 0}
-  } else if (type === 'SCROLLED_TO_BOTTOM') {
-    return {...state, scrollToBottom: false}
   }
   return state
 })
@@ -60,18 +47,14 @@ MessageListStore.effects.push(async ({ type, payload }, state) => {
     const oldestFetchedMessageIndex = messageIds.length - PAGE_SIZE
     const newestFetchedMessageIndex = messageIds.length
     const messageIdsToFetch = messageIds.slice(oldestFetchedMessageIndex, newestFetchedMessageIndex)
-    let messages = await callDcMethodAsync('messageList.getMessages', [messageIdsToFetch])
-    for (let messageId of Object.keys(messages)) {
-        messages[messageId] = MessageWrapper.convert(messages[messageId])
-    }
+    const messages = await callDcMethodAsync('messageList.getMessages', [messageIdsToFetch])
     MessageListStore.dispatch({
       type: 'NEW_CHAT_SELECTED',
       payload: {
         chatId,
         messageIds,
         messages,
-        oldestFetchedMessageIndex,
-        scrollToBottom: true
+        oldestFetchedMessageIndex
       }
     })
   } else if (type === 'FETCH_MORE_MESSAGES') {
@@ -86,10 +69,7 @@ MessageListStore.effects.push(async ({ type, payload }, state) => {
     )
     if (fetchedMessageIds.length === 0) return
 
-    let fetchedMessages = await callDcMethodAsync('messageList.getMessages', [fetchedMessageIds])
-    for (let messageId of Object.keys(fetchedMessages)) {
-        fetchedMessages[messageId] = MessageWrapper.convert(fetchedMessages[messageId])
-    }
+    const fetchedMessages = await callDcMethodAsync('messageList.getMessages', [fetchedMessageIds])
     console.log('fetchedMessages', fetchedMessages)
 
     MessageListStore.dispatch({
@@ -97,8 +77,7 @@ MessageListStore.effects.push(async ({ type, payload }, state) => {
       payload: {
         fetchedMessages,
         oldestFetchedMessageIndex,
-        countFetchedMessages: fetchedMessageIds.length,
-        scrollHeight: payload.scrollHeight
+        countFetchedMessages: fetchedMessageIds.length
       }
     })
 
@@ -121,6 +100,14 @@ ipcBackend.on('DC_EVENT_INCOMING_MSG', async (_, chatId, messageIdIncoming) => {
     }
   })
   
+})
+
+MessageListStore.hooks.push(({ type, payload }) => {
+  if (type === 'NEW_CHAT_SELECTED') {
+    MessageListStore.emit('afterNewChatSelected')
+  } else if (type === 'FETCHED_MORE_MESSAGES') {
+    MessageListStore.emit('afterFetchedMoreMessages', payload.countFetchedMessages)
+  }
 })
 
 export default MessageListStore
