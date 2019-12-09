@@ -41,7 +41,7 @@ export default function MessageList ({ chat, refComposer, locationStreamingEnabl
     messageListDispatch({ type: 'SCROLLED_TO_BOTTOM' })
   }, [scrollToBottom])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (scrollToLastPage === false) return
     console.log('scrollToLastMessageOnLastPage', lastKnownScrollPosition.current)
     messageListRef.current.scrollTop = messageListRef.current.scrollHeight - lastKnownScrollPosition.current
@@ -68,13 +68,13 @@ export default function MessageList ({ chat, refComposer, locationStreamingEnabl
   }
 
   const _messageIdsToShow = messageIdsToShow(oldestFetchedMessageIndex, messageIds)
-  console.log('Rerender!', scrollToBottom)
+  console.log('Rerender!')
 
   const tx = window.translate
   let specialMessageIdCounter = 0
   return (
     <div id='message-list' ref={messageListRef} onScroll={onScroll}>
-      <ul >
+      <ul>
         {_messageIdsToShow.map(messageId => {
           const key = messageId <= 9
             ? 'magic' + messageId + '_' + specialMessageIdCounter++
