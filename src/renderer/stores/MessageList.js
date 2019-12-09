@@ -24,7 +24,7 @@ MessageListStore.getName = () => 'MessageListStore'
 // remove the message from state immediately
 MessageListStore.reducers.push(({ type, payload, chatId }, state) => {
   if (typeof chatId !== 'undefined' && chatId !== state.chatId) {
-    log('chatId changed, skipping action')
+    this.log('chatId changed, skipping action')
   }
   if (type === 'SELECT_CHAT') {
     return { ...defaultState, chatId: payload }
@@ -69,18 +69,6 @@ MessageListStore.reducers.push(({ type, payload, chatId }, state) => {
     const messageIds = [...state.messageIds, messageId]
     const messages = { ...state.messages, [messageId]: message }
     return { ...state, messageIds, messages }
-  } else if (type === 'MESSAGE_DELIVERED') {
-    const messages = {
-      ...state.messages,
-      [payload]: {
-        ...state.messages[payload],
-        msg: {
-          ...state.messages[payload].msg,
-          status: 'delivered'
-        }
-      }
-    }
-    return { ...state, messages }
   }
 
   return state
@@ -154,10 +142,9 @@ ipcBackend.on('DD_EVENT_MSG_UPDATE', (evt, payload) => {
   })
 })
 
-ipcBackend.on('DC_EVENT_MSG_DELIVERED', (evt, [chatId, msgId]) => {
+ipcBackend.on('DC_EVENT_MSG_DELIVERED', (evt, msgId) => {
   MessageListStore.dispatch({
     type: 'MESSAGE_DELIVERED',
-    chatId,
     payload: msgId
   })
 })
