@@ -79,21 +79,20 @@ export default function MessageList ({ chat, refComposer, locationStreamingEnabl
   }
 
   const _messageIdsToShow = messageIdsToShow(oldestFetchedMessageIndex, messageIds)
-  console.log('Rerender!')
+  console.log(_messageIdsToShow, messageIds, oldestFetchedMessageIndex)
 
   const tx = window.translate
   return (
     <div id='message-list' ref={messageListRef} onScroll={onScroll}>
       <ul>
         {_messageIdsToShow.map(messageId => {
-          return <MessageListItem
-            messageId={messageId}
-            rawMessage={messages[messageId]}
-            chat={chat}
-            locationStreamingEnabled={locationStreamingEnabled}
-          />
+          return MessageListItem({
+            messageId,
+            rawMessage: messages[messageId],
+            chat,
+            locationStreamingEnabled
+          })
         })} 
-        })>
       </ul>
     </div>
   )
@@ -101,8 +100,6 @@ export default function MessageList ({ chat, refComposer, locationStreamingEnabl
 
 
 export function MessageListItem(props) {
-  const {openDialog} = useContext(ScreenContext)
-  const tx = window.translate
   const {messageId, rawMessage, chat, locationStreamingEnabled} = props
   if(!rawMessage) return null
   const onClickSetupMessage = setupMessage => openDialog('EnterAutocryptSetupMessage', { setupMessage })
