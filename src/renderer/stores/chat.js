@@ -42,9 +42,7 @@ chatStore.reducers.push(({type, payload, id}, state) => {
     log.debug('REDUCER', 'id changed, skipping action')
   }
 
-  if (type === 'SELECT_CHAT') {
-    return { ...defaultState, id: payload }
-  } else if (type === 'SELECTED_CHAT') {
+  if (type === 'SELECTED_CHAT') {
     return { ...defaultState, ...payload }
   } else if (type === 'UI_UNSELECT_CHAT') {
     return { ...defaultState }
