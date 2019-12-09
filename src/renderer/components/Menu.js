@@ -1,9 +1,8 @@
-import C from 'deltachat-node/constants'
 import React, { useContext } from 'react'
 import { callDcMethod, callDcMethodAsync } from '../ipc'
 import { ipcRenderer } from 'electron'
 import ScreenContext from '../contexts/ScreenContext'
-import { useChatStore } from '../stores/chat'
+
 import {
   Menu,
   MenuItem
@@ -22,7 +21,6 @@ export default function DeltaMenu (props) {
     selectedChat,
     showArchivedChats
   } = props
-  const chatStoreDispatch = useChatStore()[1]
 
   const tx = window.translate
 
@@ -38,7 +36,7 @@ export default function DeltaMenu (props) {
   const onBlockContact = () => openBlockContactDialog(screenContext, selectedChat)
   const onDeleteChat = () => openDeleteChatDialog(screenContext, selectedChat)
   const onUnblockContacts = () => screenContext.openDialog('UnblockContacts', {})
-  const onContactRequests = () => chatStoreDispatch({type:'SELECT_CHAT', payload: C.DC_CHAT_ID_DEADDROP})
+  const onContactRequests = () => callDcMethod('contactRequests')
   const logout = () => ipcRenderer.send('logout')
   const onEncrInfo = () => openEncryptionInfoDialog(screenContext, selectedChat)
 
