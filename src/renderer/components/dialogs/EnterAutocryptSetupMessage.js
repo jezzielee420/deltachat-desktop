@@ -88,16 +88,16 @@ export default class EnterAutocryptSetupMessage extends React.Component {
 
   continueKeyTransfer (key) {
     this.setState({ key, loading: true })
-    ipcRenderer.send('continueKeyTransfer', this.props.message.msg.id, key)
+    ipcRenderer.send('continueKeyTransfer', this.props.setupMessage.msg.id, key)
   }
 
   render () {
-    const { message, onClose } = this.props
+    const { setupMessage, onClose } = this.props
     const { loading } = this.state
-    const isOpen = !!message
+    const isOpen = !!setupMessage
     const tx = window.translate
 
-    const setupCodeBegin = message && message.setupCodeBegin
+    const setupCodeBegin = setupMessage && setupMessage.setupCodeBegin
 
     let body
     if (loading) {

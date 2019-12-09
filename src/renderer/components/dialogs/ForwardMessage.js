@@ -12,17 +12,17 @@ const C = require('deltachat-node/constants')
 
 export default function ForwardMessage (props) {
   const tx = window.translate
-  const { message, onClose } = props
+  const { forwardMessage, onClose } = props
   const { chatListIds, queryStr, setQueryStr } = useChatListIds(C.DC_GCL_NO_SPECIALS)
   const { chatItems, onChatListScroll, scrollRef } = useLazyChatListItems(chatListIds)
 
   const onChatClick = chatid => {
-    callDcMethod('messageList.forwardMessage', [message.msg.id, chatid])
-    onClose()
+    callDcMethod('messageList.forwardMessage', [props.forwardMessage.msg.id, chatid])
+    props.onClose()
   }
   const onSearchChange = e => setQueryStr(e.target.value)
 
-  var isOpen = !!message
+  var isOpen = !!forwardMessage
   return (
     <DeltaDialogBase
       isOpen={isOpen}
