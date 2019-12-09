@@ -1,17 +1,13 @@
 import logger from '../../logger'
 
+const log = logger.getLogger('renderer/stores/store')
+
 class Store {
-  constructor (state, name) {
+  constructor (state) {
     this.state = state
     this.listeners = []
     this.reducers = []
     this.effects = []
-    if(!name) name = 'Store'
-    this.log = logger.getLogger('renderer/stores/' + name)
-  }
-
-  getName() {
-    return 'Store'
   }
 
   getState () {
@@ -19,7 +15,7 @@ class Store {
   }
 
   dispatch (action) {
-    this.log.debug('DISPATCH:', action)
+    log.debug('DISPATCH:', action)
     let state = this.state
     this.reducers.forEach(reducer => {
       state = reducer(action, state)
@@ -28,7 +24,6 @@ class Store {
       effect(action, state)
     })
     if (state != this.state) {
-      this.log.debug(`DISPATCHING of "${action.type}" changed the state. Before:`, this.state, 'After:', state)
       this.state = state
       this.listeners.forEach(listener => listener(this.state))
     }
