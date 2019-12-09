@@ -50,11 +50,17 @@ export default function MainScreen () {
   const { openDialog } = useContext(ScreenContext)
   const [selectedChat, chatStoreDispatch] = useChatStore()
 
+  const chatClicked = useRef(0)
+
+  const onChatUpdate = chat => setSelectedChat(chat)
   const onChatClick = chatId => {
-    // avoid double clicks
-    if (chatId === selectedChat.id) return
-    
+    if (chatId === chatClicked.current) {
+      // avoid double clicks
+      return
+    }
+    chatClicked.current = chatId
     chatStoreDispatch({ type: 'SELECT_CHAT', payload: chatId })
+    setTimeout(() => { chatClicked.current = 0 }, 500)
   }
   const searchChats = queryStr => setQueryStr(queryStr)
   const handleSearchChange = event => searchChats(event.target.value)
