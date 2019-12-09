@@ -1,4 +1,4 @@
-import React, { useContext, useRef, useEffect, useState, useLayoutEffect } from 'react'
+import React, { useContext, useRef, useEffect, useState } from 'react'
 import MessageWrapper from './MessageWrapper'
 import ScreenContext from '../../contexts/ScreenContext'
 import { callDcMethod } from '../../ipc'
@@ -22,49 +22,29 @@ export function useStore(StoreInstance) {
 }
 
 export default function MessageList ({ chat, refComposer, locationStreamingEnabled }) {
-  const [{messageIdsToShow, messages, messageIds, page}, messageListDispatch] = useStore(MessageListStore)
-  const messageListRef = useRef(null)
-
+  const [{messageIdsToShow, messages}, messageListDispatch] = useStore(MessageListStore)
   useEffect(() => {
+
     messageListDispatch({type: 'SELECT_CHAT', payload: chat.id })
   }, [chat.id])
 
+  const messageListRef = useRef(null)
   const scrollDownOnChatSelected = () => {
     console.log('newChatSelected!', messageListRef)
-    let elem = document.querySelector(`#message-list li:last-child`)
-    elem.scrollIntoView()
+    messageListRef.current.scrollTop = messageListRef.current.scrollHeight
   }
-
-  const scrollToLastMessageOnLastPage = (countFetchedMessages) => {
-    console.log('scrollToLastMessageOnLastPage', countFetchedMessages)
-    let elem = document.querySelector(`#message-list li:nth-child(${countFetchedMessages})`)
-    elem.scrollIntoView()
-  }
-
   useEffect(() => {
-    MessageListStore.addListener('afterNewChatSelected', scrollDownOnChatSelected)
-    MessageListStore.addListener('afterFetchedMoreMessages', scrollToLastMessageOnLastPage)
-    return () => {
-      MessageListStore.removeListener('afterNewChatSelected', scrollDownOnChatSelected)
-      MessageListStore.removeListener('afterFetchedMoreMessages', scrollToLastMessageOnLastPage)
-    }
-  }, [messageIds, page])
-
-  const onScroll = () => {
-    if (messageListRef.current.scrollTop === 0) {
-      log.debug('Scrolled to top, fetching more messsages!')
-      messageListDispatch({type: 'FETCH_MORE_MESSAGES'})
-    }
-  }
+    MessageListStore.addListener('NEW_CHAT_SELECTED', scrollDownOnChatSelected)
+    return () => MessageListStore.removeListener('NEW_CHAT_SELECTED', scrollDownOnChatSelected)
+  }, [])
 
 
   const tx = window.translate
-  console.log('messageIdsToShow', messageIdsToShow, messageIds)
+  console.log('messageIdsToShow', messageIdsToShow)
   return (
-    <div id='message-list' ref={messageListRef} onScroll={onScroll}>
+    <div id='message-list' ref={messageListRef}>
       <ul>
         {messageIdsToShow.map(messageId => {
-          console.log('render', messageId)
           return MessageListItem({
             messageId,
             rawMessage: messages[messageId],
