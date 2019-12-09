@@ -17,13 +17,13 @@ module.exports = class DCChatList extends SplitOut {
       if (chat.freshMessageCounter > 0) {
         this._dc.markNoticedChat(chat.id)
         chat.freshMessageCounter = 0
-        const messagIds = this.getMessageIds(chatId)
+        const messagIds = chat.messages.map((msg) => msg.id)
         log.debug('markSeenMessages', messagIds)
         this._dc.markSeenMessages(messagIds)
         app.setBadgeCount(this._getGeneralFreshMessageCounter())
       }
     }
-    return chat
+    this._controller.sendToRenderer('DD_EVENT_CHAT_SELECTED', { chat })
   }
 
   onChatModified (chatId) {
