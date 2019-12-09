@@ -59,21 +59,31 @@ export default function MainScreen () {
 
   const tx = window.translate
 
-  const menu = <Menu
-    selectedChat={selectedChat}
-    showArchivedChats={showArchivedChats}
-  />
-  const MessageListView = selectedChat.id
-    ? media ? <Media
-      chat={selectedChat}
-    />
-      : (<MessageListAndComposer
+  const menu = <ScreenContext.Consumer>{(screenContext) =>
+    <Menu
+      selectedChat={selectedChat}
+      showArchivedChats={showArchivedChats}
+    />}
+  </ScreenContext.Consumer>
+
+  const MessageListView = selectedChat
+    ? selectedChat.id
+      ? media ? <Media
         chat={selectedChat}
-      />)
+      />
+        : (<MessageListAndComposer
+          chat={selectedChat}
+        />)
+      : (
+        <Welcome>
+          <h3>{tx('no_chat_selected_suggestion_desktop')}</h3>
+          <img src={'../images/image-80.svg'} className='welcome-image' />
+        </Welcome>
+      )
     : (
       <Welcome>
         <h1>{tx('welcome_desktop')}</h1>
-        <h3>{tx('no_chat_selected_suggestion_desktop')}</h3>
+        <p>{tx('no_chat_selected_suggestion_desktop')}</p>
         <img src={'../images/image-80.svg'} className='welcome-image' />
       </Welcome>
     )

@@ -12,8 +12,8 @@ const domHelper = {
   async openMainMenuItem (itemClass) {
     this.browser.$('#main-menu-button').waitForExist(5000)
     await this.browser.click('#main-menu-button')
-    this.browser.$('=Settings').waitForExist(5000)
-    await this.browser.click('=Settings')
+    this.browser.$('.' + itemClass).waitForExist(5000)
+    await this.browser.click('.' + itemClass)
   },
   async openSettings () {
     await this.openMainMenuItem('bp3-icon-settings')
