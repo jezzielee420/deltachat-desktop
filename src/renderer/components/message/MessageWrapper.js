@@ -7,8 +7,6 @@ import mime from 'mime-types'
 import ScreenContext from '../../contexts/ScreenContext'
 import filesizeConverter from 'filesize'
 import logger from '../../../logger'
-import { useMessageListStore } from '../../stores/MessageList'
-
 
 const log = logger.getLogger('renderer/messageWrapper')
 
@@ -36,14 +34,17 @@ const InfoMessage = styled.div`
 `
 
 export const render = React.memo((props) => {
-  const { message, messageId, chat, locationStreamingEnabled } = props
-  const { openDialog } = useContext(ScreenContext)
+  const {message, messageId, chat, locationStreamingEnabled} = props
+  const {openDialog} = useContext(ScreenContext)
   const tx = window.translate
 
   const onClickContactRequest = () => openDialog('DeadDrop', { deaddrop: message })
   const onClickSetupMessage = setupMessage => openDialog('EnterAutocryptSetupMessage', { setupMessage })
-
-  props = { ...props, onClickSetupMessage, onClickContactRequest }
+  const onShowDetail = message => openDialog('MessageDetail', { message, chat })
+  const onDelete = message => openDialog('ConfirmationDialog', {
+    message: tx('ask_delete_message_desktop'),
+    cb: yes => yes && chatStore.dispatch({ type: 'UI_DELETE_MESSAGE', payload: { msgId: message.id } })
+  })
   message.onReply = () => log.debug('reply to', message)
   message.onForward = forwardMessage => openDialog('ForwardMessage', { forwardMessage })
 
@@ -89,52 +90,109 @@ export const render = React.memo((props) => {
  * library. This class mostly just converts the necessary properties to what
  * is expected by Conversations.Message
  */
-export function RenderMessage (props) {
-  const [messageListStore, messageListDispatch] = useMessageListStore()
-  const { chat, message, locationStreamingEnabled } = props
-  const { fromId, id } = message
-  const msg = message.msg
-  const tx = window.translate
-  const { openDialog } = useContext(ScreenContext)
+class RenderMessage extends React.Component {
+  render () {
+    const { onDelete, onShowDetail, chat, message, locationStreamingEnabled } = this.props
+    const { fromId, id } = message
+    const msg = message.msg
+    const conversationType = GROUP_TYPES.includes(chat.type) ? 'group' : 'direct'
 
-  const conversationType = GROUP_TYPES.includes(chat.type) ? 'group' : 'direct'
-  const onShowDetail = message => openDialog('MessageDetail', { message, chat })
-  const onDelete = message => openDialog('ConfirmationDialog', {
-    message: tx('ask_delete_message_desktop'),
-    cb: yes => yes && messageListDispatch({ type: 'UI_DELETE_MESSAGE', payload: id })
+    const contact = {
+      onSendMessage: () => log.debug(`send a message to ${fromId}`),
+      onClick: () => { log.debug('click contact') }
+    }
+
+    if (msg.text === '[The message was sent with non-verified encryption.. See "Info" for details.]') {
+      msg.text = window.translate('message_not_verified')
+    }
+
+    const props = {
+      padlock: msg.showPadlock,
+      id,
+      conversationType,
+      onReply: message.onReply,
+      onForward: message.onForward,
+      onDelete,
+      onShowDetail,
+      contact,
+      status: msg.status,
+      text: msg.text,
+      direction: msg.direction,
+      timestamp: msg.sentAt,
+      viewType: msg.viewType,
+      message,
+      hasLocation: (msg.hasLocation && locationStreamingEnabled)
+    }
+
+    if (msg.attachment && !msg.isSetupmessage) props.attachment = msg.attachment
+    if (message.isInfo) return <InfoMessage><p>{msg.text}</p></InfoMessage>
+
+    return <Message {...props} />
+  }
+}
+
+export function convert (message) {
+  const msg = message.msg
+
+  Object.assign(msg, {
+    sentAt: msg.timestamp * 1000,
+    receivedAt: msg.receivedTimestamp * 1000,
+    direction: message.isMe ? 'outgoing' : 'incoming',
+    status: convertMessageStatus(msg.state)
   })
 
-  const contact = {
-    onSendMessage: () => log.debug(`send a message to ${fromId}`),
-    onClick: () => { log.debug('click contact') }
+  if (msg.file) {
+    msg.attachment = {
+      url: msg.file,
+      contentType: convertContentType(message),
+      fileName: message.filename || msg.text,
+      fileSize: filesizeConverter(message.filesize)
+    }
   }
 
-  if (msg.text === '[The message was sent with non-verified encryption.. See "Info" for details.]') {
-    msg.text = window.translate('message_not_verified')
-  }
-
-  props = {
-    padlock: msg.showPadlock,
-    id,
-    conversationType,
-    onReply: message.onReply,
-    onForward: message.onForward,
-    onDelete,
-    onShowDetail,
-    contact,
-    status: msg.status,
-    text: msg.text,
-    direction: msg.direction,
-    timestamp: msg.sentAt,
-    viewType: msg.viewType,
-    message,
-    hasLocation: (msg.hasLocation && locationStreamingEnabled)
-  }
-
-  if (msg.attachment && !msg.isSetupmessage) props.attachment = msg.attachment
-  if (message.isInfo) return <InfoMessage><p>{msg.text}</p></InfoMessage>
-
-  return <Message {...props} />
+  return message
 }
-const MessageWrapper = { render }
+
+function convertMessageStatus (s) {
+  switch (s) {
+    case C.DC_STATE_IN_FRESH:
+      return 'sent'
+    case C.DC_STATE_OUT_FAILED:
+      return 'error'
+    case C.DC_STATE_IN_SEEN:
+      return 'read'
+    case C.DC_STATE_IN_NOTICED:
+      return 'read'
+    case C.DC_STATE_OUT_DELIVERED:
+      return 'delivered'
+    case C.DC_STATE_OUT_MDN_RCVD:
+      return 'read'
+    case C.DC_STATE_OUT_PENDING:
+      return 'sending'
+    case C.DC_STATE_UNDEFINED:
+      return 'error'
+  }
+}
+
+function convertContentType (message) {
+  const filemime = message.filemime
+
+  if (!filemime) return 'application/octet-stream'
+  if (filemime !== 'application/octet-stream') return filemime
+
+  switch (message.msg.viewType) {
+    case C.DC_MSG_IMAGE:
+      return 'image/jpg'
+    case C.DC_MSG_VOICE:
+      return 'audio/ogg'
+    case C.DC_MSG_FILE:
+      const type = mime.lookup(message.msg.file)
+      if (type) return type
+      else return 'application/octet-stream'
+    default:
+      return 'application/octet-stream'
+  }
+}
+
+const MessageWrapper = { render, convert }
 export default MessageWrapper

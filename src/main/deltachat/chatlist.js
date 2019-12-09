@@ -120,6 +120,7 @@ module.exports = class DCChatList extends SplitOut {
     if (chat === null) return null
     this._controller._pages = 0
 
+
     const isGroup = isGroupChat(chat)
     const contactIds = this._dc.getChatContacts(chatId)
 
