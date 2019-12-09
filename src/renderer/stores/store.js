@@ -19,11 +19,7 @@ class Store {
     this.reducers = []
     this.effects = []
     if (!name) name = 'Store'
-    this._log = logger.getLogger('renderer/stores/' + name)
-  }
-
-  get log() {
-    return this._log
+    this.log = logger.getLogger('renderer/stores/' + name)
   }
 
   getName () {

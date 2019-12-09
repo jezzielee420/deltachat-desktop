@@ -12,7 +12,6 @@ const defaultState = {
   messages: {},
   oldestFetchedMessageIndex: -1,
   scrollToBottom: false,
-  scrollToBottomIfClose: false,
   scrollToLastPage: false,
   scrollHeight: 0,
   countFetchedMessages: 0
@@ -20,7 +19,7 @@ const defaultState = {
 
 const MessageListStore = new Store(defaultState, 'MessageListStore')
 
-console.log('xxx', MessageListStore.log)
+MessageListStore.getName = () => 'MessageListStore'
 
 // remove the message from state immediately
 MessageListStore.reducers.push(({ type, payload, chatId }, state) => {
@@ -42,14 +41,12 @@ MessageListStore.reducers.push(({ type, payload, chatId }, state) => {
     return {
       ...state,
       messageIds: payload.messageIds,
-      messages: { ...state.messages, ...payload.messagesIncoming, scrollToBottomIfClose: true }
+      messages: { ...state.messages, ...payload.messagesIncoming }
     }
   } else if (type === 'SCROLLED_TO_LAST_PAGE') {
     return { ...state, scrollToLastPage: false, scrollHeight: 0 }
   } else if (type === 'SCROLLED_TO_BOTTOM') {
     return { ...state, scrollToBottom: false }
-  } else if (type === 'SCROLLED_TO_BOTTOM_IF_CLOSE') {
-    return { ...state, scrollToBottomIfClose: false }
   } else if (type === 'UI_DELETE_MESSAGE') {
     const msgId = payload
 
@@ -63,8 +60,7 @@ MessageListStore.reducers.push(({ type, payload, chatId }, state) => {
       : state.oldestFetchedMessageIndex
     const messages = { ...state.messages, [msgId]: null }
     return { ...state, messageIds, messages, oldestFetchedMessageIndex }
-  } else if (type === 'MESSAGE_CHANGED') {
-    return { ...state, messages: { ...state.messages, ...payload.messagesChanged }} 
+  } else if (type === 'MESSAGE_UPDATED') {
 
   } else if (type === 'SENT_MESSAGE') {
     const [messageId, message] = payload
@@ -171,35 +167,6 @@ ipcBackend.on('DC_EVENT_INCOMING_MSG', async (_, chatId, messageIdIncoming) => {
       messagesIncoming
     }
   })
-})
-
-ipcBackend.on('DC_EVENT_MSGS_CHANGED', async (_, [chatId, messageId]) => {
-  MessageListStore.log.debug('DC_EVENT_MSGS_CHANGED', chatId, messageId)
-  if (chatId !== MessageListStore.state.chatId) return
-  if (MessageListStore.state.messageIds.indexOf(messageId) !== -1) {
-    MessageListStore.log.debug('DC_EVENT_MSGS_CHANGED', 'changed message seems to be message we already know')
-    const messagesChanged = await callDcMethodAsync('messageList.getMessages', [[messageId]])
-    MessageListStore.dispatch({
-      type: 'MESSAGE_CHANGED',
-      payload: {
-        messageId,
-        messagesChanged
-      }
-    }) 
-  } else {
-    MessageListStore.log.debug('DC_EVENT_MSGS_CHANGED', 'changed message seems to be a new message')
-    const messageIds = await callDcMethodAsync('messageList.getMessageIds', [chatId])
-    const messageIdsIncoming = messageIds.filter(x => !MessageListStore.state.messageIds.includes(x))
-    const messagesIncoming = await callDcMethodAsync('messageList.getMessages', [messageIdsIncoming])
-    MessageListStore.dispatch({
-      type: 'FETCHED_INCOMING_MESSAGES',
-      payload: {
-        messageIds,
-        messageIdsIncoming,
-        messagesIncoming
-      }
-    })
-  }
 })
 
 export default MessageListStore
